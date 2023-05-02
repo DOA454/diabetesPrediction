@@ -2,12 +2,7 @@
 title: "Gestational Diabetes Prediciton Project"
 author: "Daniel Audi"
 date: "6/20/2022"
-output:
-  html_notebook: default
-  html_document:
-    df_print: paged
-  pdf_document: default
-  word_document: default
+output: rmarkdown::github_document
 ---
 
 - Project outline
