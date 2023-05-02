@@ -2,7 +2,9 @@
 title: "Gestational Diabetes Prediciton Project"
 author: "Daniel Audi"
 date: "6/20/2022"
-output: rmarkdown::github_document
+output:  
+  html_document:
+    keep_md: true
 ---
 
 - Project outline
