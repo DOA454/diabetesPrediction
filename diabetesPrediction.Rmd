@@ -1,0 +1,346 @@
+---
+title: "Gestational Diabetes Prediciton Project"
+author: "Daniel Audi"
+date: "6/20/2022"
+output:
+  html_notebook: default
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+
+- Project outline
+The project goal as a data scientist working at a hospital, is to develop a model to identify pregnant women with a greater likelihood of developing gestational diabetes.Given that the outcome will be a positive or negative diagnosis, this falls under the category of classification machine learning algorithms.
+- Data description
+The dataset inovles data on women at least 21 years of age and contains the following variables:
+•	Pregnancies: Number of times pregnant
+•	Glucose: Plasma glucose concentration 2 hours after an oral glucose tolerance test
+•	BloodPressure: Diastolic blood pressure (mm Hg)
+•	SkinThickness: Triceps skin fold thickness (mm)
+•	Insulin: 2-Hour serum insulin (mu U/ml)
+•	BMI: Body mass index (BMI = weight (kg) / height (m)2)
+•	Pedigree: Diabetes pedigree function
+•	Age: Age (years)
+•	Diagnosis: Class (diabetes/not diabetes, 1,0)
+The target variable is the diagnosis while all the others are independent variables (features)
+
+```{r}
+require(ggplot2)
+library(dplyr)
+library(caret)
+
+# Import the dataset
+patients <- read.csv("data/patients.csv")
+
+# Generate the summary statistics for each variable
+summary(patients)
+
+# Display the  first few rows of the dataset
+head(patients)
+```
+
+### MIssingness Map
+```{r}
+# Use the Amelia library to generate the missingness map for the data
+library(Amelia)
+
+
+patients.missing <- patients[, 1:8] %>%
+  mutate(Pregnancies = replace(Pregnancies, Pregnancies == 0, NA)) %>%
+  mutate(Glucose = replace(Glucose, Glucose == 0, NA)) %>%
+  mutate(BloodPressure = replace(BloodPressure, BloodPressure == 0, NA)) %>%
+  mutate(SkinThickness = replace(SkinThickness, SkinThickness == 0, NA)) %>%
+  mutate(Insulin = replace(Insulin, Insulin == 0, NA)) %>%
+  mutate(BMI = replace(BMI, BMI == 0, NA)) %>%
+  mutate(Pedigree = replace(Pedigree, Pedigree == 0, NA)) %>%
+  mutate(Age = replace(Age, Age == 0, NA))
+missmap(patients.missing)
+```
+
+
+
+## Filling missing values with the median
+```{r}
+
+# Replacing the 0 values with NA 
+patients.clean <- patients %>%
+  mutate(Pregnancies = replace(Pregnancies, Pregnancies == 0, NA)) %>%
+  mutate(Glucose = replace(Glucose, Glucose == 0, NA)) %>%
+  mutate(BloodPressure = replace(BloodPressure, BloodPressure == 0, NA)) %>%
+  mutate(SkinThickness = replace(SkinThickness, SkinThickness == 0, NA)) %>%
+  mutate(Insulin = replace(Insulin, Insulin == 0, NA)) %>%
+  mutate(BMI = replace(BMI, BMI == 0, NA)) %>%
+  mutate(Pedigree = replace(Pedigree, Pedigree == 0, NA)) %>%
+  mutate(Age = replace(Age, Age == 0, NA))
+
+
+```
+
+### Pregnancies
+```{r}
+patients.clean$Pregnancies[is.na(patients.clean$Pregnancies)]<-median(patients.clean$Pregnancies,na.rm=TRUE)
+```
+
+### Glucose
+```{r}
+patients.clean$Glucose[is.na(patients.clean$Glucose)]<-median(patients.clean$Glucose,na.rm=TRUE)
+```
+
+### Blood Pressure 
+```{r}
+patients.clean$BloodPressure[is.na(patients.clean$BloodPressure)]<-median(patients.clean$BloodPressure,na.rm=TRUE)
+```
+
+### Skin Thickness
+```{r}
+patients.clean$SkinThickness[is.na(patients.clean$SkinThickness)]<-median(patients.clean$SkinThickness,na.rm=TRUE)
+```
+
+### Insulin
+```{r}
+patients.clean$Insulin[is.na(patients.clean$Insulin)]<-median(patients.clean$Insulin,na.rm=TRUE)
+```
+
+### BMI
+```{r}
+patients.clean$BMI[is.na(patients.clean$BMI)]<-median(patients.clean$BMI,na.rm=TRUE)
+```
+
+### Pedigree
+```{r}
+patients.clean$Pedigree[is.na(patients.clean$Pedigree)]<-median(patients.clean$Pedigree,na.rm=TRUE)
+```
+
+### Age
+```{r}
+patients.clean$Age[is.na(patients.clean$Age)]<-median(patients.clean$Age,na.rm=TRUE)
+```
+
+### Plot missingness map to show that there are no missing values
+```{r}
+missmap(patients.clean)
+```
+
+
+##Plot histograms of the data to show distribution and boxplots to show outliers
+This is an exploratory data analysis to see the distribution of the data and the outliers in the dataset
+
+### Histogram and boxplot of pregnancies:
+```{r}
+library(ggplot2)
+
+# plot histogram
+ggplot(patients.clean, aes(x = Pregnancies)) + geom_histogram(fill = "blue", color = "black")
+
+#plot boxplot to visualize outliers
+ggplot(patients.clean, aes(x = Pregnancies)) + geom_boxplot(color = "blue", fill = "grey", outlier.color = "red")
+
+#Using IQR to calculate the threshold for outliers and imputing the median
+upperPreg <- quantile(patients.clean$Pregnancies, 0.75)+(1.5*IQR(patients.clean$Pregnancies))
+patients.clean.outliers <- patients.clean %>%
+  mutate(Pregnancies = replace(Pregnancies, Pregnancies > upperPreg, median(Pregnancies)))
+
+#plot boxplot to confirm if all outliers have been dealt with
+ggplot(patients.clean.outliers, aes(x = Pregnancies)) + geom_boxplot(color = "blue", fill = "grey", outlier.color = "red")
+
+```
+
+### Histogram and boxplot of Glucose
+Glucose had no outliers
+```{r}
+ggplot(patients.clean, aes(x = Glucose)) + geom_histogram(fill = "blue", color = "black")
+ggplot(patients.clean, aes(x = Glucose)) + geom_boxplot(color = "blue", fill = "grey", outlier.color = "red")
+upperGluc <- quantile(patients.clean$Glucose, 0.75)+(1.5*IQR(patients.clean$Glucose))
+lowerGluc <- quantile(patients.clean$Glucose, 0.25)-(1.5*IQR(patients.clean$Glucose))
+patients.clean.outliers <- patients.clean %>%
+  mutate(Glucose = replace(Glucose, Glucose > upperGluc, median(Glucose))) %>%
+  mutate(Glucose = replace(Glucose, Glucose < lowerGluc, median(Glucose)))
+ggplot(patients.clean.outliers, aes(x = Glucose)) + geom_boxplot(color = "blue", fill = "grey", outlier.color = "red")
+```
+
+### Histogram and boxplot of BloodPressure
+```{r}
+ggplot(patients.clean, aes(x = BloodPressure)) + geom_histogram(fill = "blue", color = "black")
+ggplot(patients.clean, aes(x = BloodPressure)) + geom_boxplot(color = "blue", fill = "grey", outlier.color = "red")
+upperBP <- quantile(patients.clean$BloodPressure, 0.75)+(1.5*IQR(patients.clean$BloodPressure))
+lowerBP <- quantile(patients.clean$BloodPressure, 0.25)-(1.5*IQR(patients.clean$BloodPressure))
+patients.clean.outliers <- patients.clean %>%
+  mutate(BloodPressure = replace(BloodPressure, BloodPressure > upperBP, median(BloodPressure))) %>%
+  mutate(BloodPressure = replace(BloodPressure, BloodPressure < lowerBP, median(BloodPressure)))
+
+ggplot(patients.clean.outliers, aes(x = BloodPressure)) + geom_boxplot(color = "blue", fill = "grey", outlier.color = "red")
+
+```
+### Histogram and boxplot of Skin Thickness
+```{r}
+ggplot(patients.clean, aes(x = SkinThickness)) + geom_histogram(fill = "blue", color = "black")
+ggplot(patients.clean, aes(x = SkinThickness)) + geom_boxplot(color = "blue", fill = "grey", outlier.color = "red")
+upperSK <- quantile(patients.clean$SkinThickness, 0.75)+(1.5*IQR(patients.clean$SkinThickness))
+lowerSK <- quantile(patients.clean$SkinThickness, 0.25)-(1.5*IQR(patients.clean$SkinThickness))
+patients.clean.outliers <- patients.clean %>%
+  mutate(SkinThickness = replace(SkinThickness, SkinThickness > upperSK, median(SkinThickness))) %>%
+  mutate(SkinThickness = replace(SkinThickness, SkinThickness < lowerSK, median(SkinThickness)))
+ggplot(patients.clean.outliers, aes(x = SkinThickness)) + geom_boxplot(color = "blue", fill = "grey", outlier.color = "red")
+
+```
+
+### Histogram and boxplot of Insulin
+```{r}
+ggplot(patients.clean, aes(x = Insulin)) + geom_histogram(fill = "blue", color = "black")
+ggplot(patients.clean, aes(x = Insulin)) + geom_boxplot(color = "blue", fill = "grey", outlier.color = "red")
+upperIns <- quantile(patients.clean$Insulin, 0.75)+(1.5*IQR(patients.clean$Insulin))
+lowerIns <- quantile(patients.clean$Insulin, 0.25)-(1.5*IQR(patients.clean$Insulin))
+patients.clean.outliers <- patients.clean %>%
+  mutate(Insulin = replace(Insulin, Insulin > upperIns, median(Insulin))) %>%
+  mutate(Insulin = replace(Insulin, Insulin < lowerIns, median(Insulin)))
+ggplot(patients.clean.outliers, aes(x = Insulin)) + geom_boxplot(color = "blue", fill = "grey", outlier.color = "red")
+```
+
+### Histogram and boxplot of BMI
+```{r}
+ggplot(patients.clean, aes(x = BMI)) + geom_histogram(fill = "blue", color = "black")
+ggplot(patients.clean, aes(x = BMI)) + geom_boxplot(color = "blue", fill = "grey", outlier.color = "red")
+upperBMI <- quantile(patients.clean$BMI, 0.75)+(1.5*IQR(patients.clean$BMI))
+lowerBMI <- quantile(patients.clean$BMI, 0.25)-(1.5*IQR(patients.clean$BMI))
+patients.clean.outliers <- patients.clean %>%
+  mutate(BMI = replace(BMI, BMI > upperBMI, median(BMI))) %>%
+  mutate(BMI = replace(BMI, BMI < lowerBMI, median(BMI)))
+ggplot(patients.clean.outliers, aes(x = BMI)) + geom_boxplot(color = "blue", fill = "grey", outlier.color = "red")
+```
+
+### Histogram and boxplot of Pedigree
+```{r}
+ggplot(patients.clean, aes(x = Pedigree)) + geom_histogram(fill = "blue", color = "black")
+ggplot(patients.clean, aes(x = Pedigree)) + geom_boxplot(color = "blue", fill = "grey", outlier.color = "red")
+upperPd <- quantile(patients.clean$Pedigree, 0.75)+(1.5*IQR(patients.clean$Pedigree))
+lowerPd <- quantile(patients.clean$Pedigree, 0.25)-(1.5*IQR(patients.clean$Pedigree))
+patients.clean.outliers <- patients.clean %>%
+  mutate(Pedigree = replace(Pedigree, Pedigree >= upperPd, median(Pedigree))) %>%
+  mutate(Pedigree = replace(Pedigree, Pedigree <= lowerPd, median(Pedigree)))
+ggplot(patients.clean.outliers, aes(x = Pedigree)) + geom_boxplot(color = "blue", fill = "grey", outlier.color = "red")
+```
+
+### Histogram and boxplot of Age
+```{r}
+ggplot(patients.clean, aes(x = Age)) + geom_histogram(fill = "blue", color = "black")
+ggplot(patients.clean, aes(x = Age)) + geom_boxplot(color = "blue", fill = "grey", outlier.color = "red")
+upperAge <- quantile(patients.clean$Age, 0.75)+(1.5*IQR(patients.clean$Age))
+lowerAge <- quantile(patients.clean$Age, 0.25)-(1.5*IQR(patients.clean$Age))
+patients.clean.outliers <- patients.clean %>%
+  mutate(Age = replace(Age, Age >= upperAge, median(Age))) %>%
+  mutate(Age = replace(Age, Age <= lowerAge, median(Age)))
+ggplot(patients.clean.outliers, aes(x = Age)) + geom_boxplot(color = "blue", fill = "grey", outlier.color = "red")
+
+```
+
+### Correlogram to select features
+```{r}
+library(corrgram)
+corrgram(patients.clean.outliers[1:8], order=TRUE, lower.panel=panel.shade, upper.panel=NULL, text.panel=panel.txt, main="Correlogram of features")
+```
+Pregnancies and Age are highly correlated, as are SkinThickness and BMI. Therefore when selecting the features, Age and SkinThickness will be dropped, keeping Pregnancies and BMI. Further analysis will be done to further select the features using a regression model.
+
+
+### Standardize features to a gaussian distribution
+
+```{r}
+standardize = function(x){
+  z.score <- x - mean(x) / sd(x)
+  return(z.score)
+}
+
+patients.clean.outliers[1:8] <- apply(patients.clean.outliers[1:8], 2, standardize)
+patients.clean.outliers$Diagnosis = as.factor(patients.clean.outliers$Diagnosis)
+std.patients.final = patients.clean.outliers
+```
+
+### Logistic Regression model
+```{r}
+library(caTools)
+
+# To ensure reproducibiity
+set.seed(143)
+
+#Split the dataset into train and test data
+sample <- sample.split(std.patients.final$Diagnosis, SplitRatio = 0.8)
+train <- subset(std.patients.final, sample==TRUE)
+test <- subset(std.patients.final, sample==FALSE)
+
+train_control <- trainControl(method="cv", number=10, savePredictions = "all", classProbs = FALSE)
+
+# Check the dimensions of the train and test data
+dim(train)
+dim(test)
+```
+
+### feature selection for the model using regression
+```{r}
+selection = glm(Diagnosis ~ ., data = std.patients.final, family = 'binomial')
+summary(selection)
+```
+From the analysis above, the following features will be the best for our model, denoted by the asterisks:
+  <li>Pregnancies</li>
+  <li>Glucose</li>
+  <li>BMI</li>
+  <li>Pedigree</li>
+While Age has also been selected, from the correlogram, it is highly correlated with Pregnancies. This will cause greater fluctuations in our model and therefore we drop Age. The selected features will be Pregnancies, Glucose, BMI and Pedigree
+
+
+### Logistic Regression model with selected features
+```{r}
+set.seed(143)
+
+# Training the model with selected features
+LRM.selected = train(Diagnosis ~ Pregnancies + Glucose + BMI + Pedigree, data = train, trControl=train_control, family = 'binomial', method="glm", metric="Accuracy")
+
+# Model metrics
+summary(LRM.selected)
+LRM.selected
+
+# Variable importance
+varImp(LRM.selected)
+```
+### Logistic Regression model with all features
+```{r}
+set.seed(143)
+
+# Training the model
+LRM.all = train(Diagnosis ~ ., data = train, trControl=train_control, family = binomial, method="glm", metric="Accuracy")
+
+# Model metrics
+summary(LRM.all)
+LRM.all
+
+# Variable importance
+varImp(LRM.all)
+```
+kappa values
+.81-1 Almost perfect
+.61 - .8 Substantial
+.41 - .6 Moderate
+.21 - .4 Fair
+.00 - .2 Slight
+< 0 Poor
+
+odds ratios (log odds)
+
+### Classification report and accuracy score of the models
+Starting with the model with preselected features
+```{r}
+# Make predictions using the test data
+prediction.selected <- predict(LRM.selected, newdata = test)
+
+# Generate the confusion matrix for the model
+result.selected = confusionMatrix(prediction.selected, test$Diagnosis, positive = "1")
+result.selected
+```
+
+Next, the model with all the features
+```{r}
+prediction.all <- predict(LRM.all, newdata = test)
+
+result.all = confusionMatrix(prediction.all, test$Diagnosis, positive = "1")
+result.all
+```
+
