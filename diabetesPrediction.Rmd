@@ -21,6 +21,7 @@ The dataset inovles data on women at least 21 years of age and contains the foll
 The target variable is the diagnosis while all the others are independent variables (features)
 
 ```{r}
+knitr::opts_chunk$set(fig.path = "README_figs/README-")
 require(ggplot2)
 library(dplyr)
 library(caret)
